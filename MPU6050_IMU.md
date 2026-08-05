@@ -28,12 +28,6 @@ other. Please preserve this attribution.
 The commit history in this repo reflects these layers: mjbots/Otavio commits,
 then a "type 5" commit credited to Neel Adke, then a "type 6" MPU6050 commit.
 
-> Note: Neel Adke's commit currently uses a placeholder email
-> (`neeladke@users.noreply.github.com`). If you have his real address/GitHub
-> handle, amend it with
-> `git commit --amend --author="Neel Adke <real@email>"` on that commit (via an
-> interactive rebase), or leave as-is.
-
 ---
 
 ## What the MPU6050 addition does (type 6)

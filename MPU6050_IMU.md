@@ -60,8 +60,9 @@ so neither provides absolute compass heading.
 
 ## Hardware setup
 
-- **AUX1** — I2C to the IMU (pins 2 and 3 = SCL/SDA). I2C pull-up resistors are
-  required (most breakout boards include them).
+- **AUX1** — I2C to the IMU. On the moteus C1 these are `aux1.pins.3` = SCL
+  (pad D) and `aux1.pins.4` = SDA (pad E). I2C pull-up resistors are required,
+  and the C1 has **no internal AUX1 pull-ups**, so the breakout must supply them.
 - **AUX2** — optional SPI encoder (e.g. MA600).
 - **Onboard** — AS5047P, motor commutation.
 
@@ -118,8 +119,8 @@ Pins are the same for both IMUs; only the **type** and **address** differ.
 ```bash
 python3 -m moteus.moteus_tool --target 1 -c "conf set aux1.i2c.devices.0.type 6"
 python3 -m moteus.moteus_tool --target 1 -c "conf set aux1.i2c.devices.0.address 104"
-python3 -m moteus.moteus_tool --target 1 -c "conf set aux1.pins.2.mode 13"
 python3 -m moteus.moteus_tool --target 1 -c "conf set aux1.pins.3.mode 13"
+python3 -m moteus.moteus_tool --target 1 -c "conf set aux1.pins.4.mode 13"
 python3 -m moteus.moteus_tool --target 1 -c "conf write"
 ```
 
@@ -128,8 +129,8 @@ python3 -m moteus.moteus_tool --target 1 -c "conf write"
 ```bash
 python3 -m moteus.moteus_tool --target 1 -c "conf set aux1.i2c.devices.0.type 5"
 python3 -m moteus.moteus_tool --target 1 -c "conf set aux1.i2c.devices.0.address 107"
-python3 -m moteus.moteus_tool --target 1 -c "conf set aux1.pins.2.mode 13"
 python3 -m moteus.moteus_tool --target 1 -c "conf set aux1.pins.3.mode 13"
+python3 -m moteus.moteus_tool --target 1 -c "conf set aux1.pins.4.mode 13"
 python3 -m moteus.moteus_tool --target 1 -c "conf write"
 ```
 

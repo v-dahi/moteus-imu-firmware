@@ -20,11 +20,12 @@ It continuously reads 6 values:
 Configuration in tview / moteus_tool:
     python3 -m moteus.moteus_tool --target 1 -c "conf set aux1.i2c.devices.0.type 6"
     python3 -m moteus.moteus_tool --target 1 -c "conf set aux1.i2c.devices.0.address 104"
-    python3 -m moteus.moteus_tool --target 1 -c "conf set aux1.pins.2.mode 13"
     python3 -m moteus.moteus_tool --target 1 -c "conf set aux1.pins.3.mode 13"
+    python3 -m moteus.moteus_tool --target 1 -c "conf set aux1.pins.4.mode 13"
     python3 -m moteus.moteus_tool --target 1 -c "conf write"
 
 Note: address 104 = 0x68 (MPU6050 AD0 pin low). Use 105 = 0x69 if AD0 is high.
+On the moteus C1, AUX1 I2C is pins 3 (SCL, pad D) and 4 (SDA, pad E) -- NOT 2/3.
 """
 
 import asyncio

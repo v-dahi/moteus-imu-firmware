@@ -23,7 +23,7 @@ other. Please preserve this attribution.
 | Base firmware | **Josh Pieper / [mjbots](https://github.com/mjbots/moteus)** | The entire moteus motor controller firmware. Apache-2.0 licensed. |
 | IMU support | **Otavio Good** (`otaviogood@yahoo.com`) | Added the LSM6DSV16X I2C driver: on-chip SFLP quaternion output, accelerometer mode, quaternion CAN registers + atomic read cache, I2C robustness, and the original Python examples. |
 | Raw accel+gyro | **Neel Adke** | Added the `lsm6dsv16xRaw` device type (type 5) exposing raw accelerometer + gyroscope, the gyro CAN registers, and supporting examples. *(Attributed from the source folder provenance; this work was uncommitted in the original tree.)* |
-| MPU6050 support | **Jay Goswami** | Added the `mpu6050` device type (type 6) for the InvenSense MPU6050, and `read_mpu6050.py`. |
+| MPU6050 support | **Vaidehi Gohil** | Added the `mpu6050` device type (type 6) for the InvenSense MPU6050, and `read_mpu6050.py`. |
 
 The commit history in this repo reflects these layers: mjbots/Otavio commits,
 then a "type 5" commit credited to Neel Adke, then a "type 6" MPU6050 commit.

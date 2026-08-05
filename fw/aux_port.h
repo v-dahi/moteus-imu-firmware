@@ -629,6 +629,12 @@ class AuxPort {
         break;
       }
 
+      //Added new, MPU6050
+      case DC::kMpu6050: {
+        ISR_ParseMpu6050(&status);
+        break;
+      }
+
       case DC::kNone:
       case DC::kNumTypes: {
         // Ignore.
@@ -698,6 +704,29 @@ class AuxPort {
     status->gyro_z = (gyro_raw_data_[5] << 8) | gyro_raw_data_[4];  // Gyro Z
 }
 
+  //Added new, MPU6050
+  // Parses the 14-byte burst read from ReadMpu6050() into accel + gyro.
+  // NOTE: unlike the LSM6DSV16X (little-endian), the MPU6050 output
+  // registers are BIG-endian -- high byte comes first, then low byte.
+  void ISR_ParseMpu6050(aux::I2C::DeviceStatus* status) {
+    status->active = i2c_startup_complete_;
+
+    status->nonce += 1;
+
+    // Buffer layout (registers 0x3B..0x48):
+    //   [0] AX_H [1] AX_L [2] AY_H [3] AY_L [4] AZ_H [5] AZ_L
+    //   [6] TEMP_H [7] TEMP_L
+    //   [8] GX_H [9] GX_L [10] GY_H [11] GY_L [12] GZ_H [13] GZ_L
+    status->accel_x = (mpu_raw_data_[0] << 8) | mpu_raw_data_[1];
+    status->accel_y = (mpu_raw_data_[2] << 8) | mpu_raw_data_[3];
+    status->accel_z = (mpu_raw_data_[4] << 8) | mpu_raw_data_[5];
+
+    // Bytes 6-7 are temperature, which we skip.
+    status->gyro_x = (mpu_raw_data_[8] << 8) | mpu_raw_data_[9];
+    status->gyro_y = (mpu_raw_data_[10] << 8) | mpu_raw_data_[11];
+    status->gyro_z = (mpu_raw_data_[12] << 8) | mpu_raw_data_[13];
+  }
+
   void ISR_PollI2c() {
     using DC = aux::I2C::DeviceConfig;
 
@@ -757,6 +786,15 @@ class AuxPort {
             }
             break;
           }
+
+          //Added new, MPU6050
+          case DC::kMpu6050: {
+            if (!state.initialized) {
+              if (InitMpu6050(config)) state.initialized = true;
+              return;
+            }
+            break;
+          }
           case DC::kNone:
           case DC::kNumTypes: {
             MJ_ASSERT(false);
@@ -795,6 +833,12 @@ class AuxPort {
             ReadRawIMUData(config.address);
             break;
 	  }
+
+          //Added new, MPU6050
+          case DC::kMpu6050: {
+            ReadMpu6050(config.address);
+            break;
+          }
           case DC::kNone:
           case DC::kNumTypes: {
             MJ_ASSERT(false);
@@ -1081,6 +1125,60 @@ class AuxPort {
 
     // Return immediately - don't wait for I2C to complete
     // The data will be ready on the next interrupt cycle
+  }
+
+  //Added new, MPU6050
+  // One-time configuration of the MPU6050. Runs inside the ISR at startup,
+  // takes ~1ms, mirrors the structure of InitLsm6dsv16xRaw().
+  bool InitMpu6050(const auto config) {
+    // Make sure I2C is in a clean state.
+    while (i2c_->busy()) {
+      i2c_->Poll();
+    }
+
+    // PWR_MGMT_1 (0x6B) = 0x00: clear the SLEEP bit. The MPU6050 powers up
+    // asleep, so without this it never produces data.
+    uint8_t pwr_mgmt_1 = 0x00;
+    i2c_->StartWriteMemory(config.address, 0x6B, std::string_view(
+        reinterpret_cast<const char*>(&pwr_mgmt_1), 1));
+    wait_i2c();
+
+    // CONFIG (0x1A) = 0x03: digital low-pass filter, ~44 Hz accel / 42 Hz
+    // gyro bandwidth. This also sets the internal sample rate to 1 kHz.
+    uint8_t dlpf_config = 0x03;
+    i2c_->StartWriteMemory(config.address, 0x1A, std::string_view(
+        reinterpret_cast<const char*>(&dlpf_config), 1));
+    wait_i2c();
+
+    // SMPLRT_DIV (0x19) = 0x04: output rate = 1 kHz / (1 + 4) = 200 Hz.
+    uint8_t smplrt_div = 0x04;
+    i2c_->StartWriteMemory(config.address, 0x19, std::string_view(
+        reinterpret_cast<const char*>(&smplrt_div), 1));
+    wait_i2c();
+
+    // GYRO_CONFIG (0x1B) = 0x18: FS_SEL = 3 -> +/-2000 dps.
+    uint8_t gyro_config = 0x18;
+    i2c_->StartWriteMemory(config.address, 0x1B, std::string_view(
+        reinterpret_cast<const char*>(&gyro_config), 1));
+    wait_i2c();
+
+    // ACCEL_CONFIG (0x1C) = 0x18: AFS_SEL = 3 -> +/-16 g. Matches the
+    // LSM6DSV16X raw mode so the same accel scale factor applies.
+    uint8_t accel_config = 0x18;
+    i2c_->StartWriteMemory(config.address, 0x1C, std::string_view(
+        reinterpret_cast<const char*>(&accel_config), 1));
+    wait_i2c();
+
+    return true;
+  }
+
+  //Added new, MPU6050
+  // Accel (0x3B-0x40), temp (0x41-0x42) and gyro (0x43-0x48) registers are
+  // contiguous, so a single 14-byte burst read grabs everything. Like the
+  // LSM path, this only *starts* the non-blocking read (~3us) and returns;
+  // the data is parsed by ISR_ParseMpu6050() on the following interrupt.
+  void ReadMpu6050(uint8_t address) {
+    StartI2cRead(address, 0x3B, mpu_raw_data_, 14);
   }
 
 
@@ -1713,6 +1811,7 @@ class AuxPort {
   //Added new
   uint8_t accel_raw_data_[6] = {};         // Data buffers for accelerometer
   uint8_t gyro_raw_data_[6] = {};          // Data buffers for gyro
+  uint8_t mpu_raw_data_[14] = {};          // Added new, MPU6050 burst-read buffer
   bool i2c_startup_complete_ = false;
 
   static constexpr size_t kTunnelBufSize = 64;

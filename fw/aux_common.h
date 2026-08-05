@@ -250,6 +250,7 @@ struct I2C {
       kLsm6dsv16x,
       kLsm6dsv16xAccel,
       kLsm6dsv16xRaw,     // Added new
+      kMpu6050,           // Added new, MPU6050 6-axis raw accel+gyro
       kNumTypes,
     };
     Type type = kNone;
@@ -531,6 +532,7 @@ struct IsEnum<moteus::aux::I2C::DeviceConfig::Type> {
         { T::kLsm6dsv16x, "lsm6dsv16x" },
         { T::kLsm6dsv16xAccel, "lsm6dsv16xAccel" },
         { T::kLsm6dsv16xRaw, "lsm6dsv16xRaw" }, //Added new, for tview
+        { T::kMpu6050, "mpu6050" }, //Added new, for tview
       }};
   }
 };

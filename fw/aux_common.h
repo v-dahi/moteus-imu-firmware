@@ -249,6 +249,7 @@ struct I2C {
       kAs5600,
       kLsm6dsv16x,
       kLsm6dsv16xAccel,
+      kLsm6dsv16xRaw,     // Added new
       kNumTypes,
     };
     Type type = kNone;
@@ -290,9 +291,14 @@ struct I2C {
     uint8_t ams_diag = 0;
     uint16_t ams_mag = 0;
 
-    uint16_t quat_x = 0;
-    uint16_t quat_y = 0;
-    uint16_t quat_z = 0;
+    uint16_t accel_x = 0;
+    uint16_t accel_y = 0;
+    uint16_t accel_z = 0;
+    
+    // Added new, gyro data structures
+    int16_t gyro_x = 0;
+    int16_t gyro_y = 0;
+    int16_t gyro_z = 0;
 
     template <typename Archive>
     void Serialize(Archive* a) {
@@ -305,9 +311,15 @@ struct I2C {
       a->Visit(MJ_NVP(ams_diag));
       a->Visit(MJ_NVP(ams_mag));
 
-      a->Visit(MJ_NVP(quat_x));
-      a->Visit(MJ_NVP(quat_y));
-      a->Visit(MJ_NVP(quat_z));
+      a->Visit(MJ_NVP(accel_x));
+      a->Visit(MJ_NVP(accel_y));
+      a->Visit(MJ_NVP(accel_z));
+      
+      //Added new, gyro serialization 
+      //Exposes in telemetry, enables saving in config files and enables CAN reading
+      a->Visit(MJ_NVP(gyro_x));
+      a->Visit(MJ_NVP(gyro_y));
+      a->Visit(MJ_NVP(gyro_z));
     }
   };
 
@@ -518,6 +530,7 @@ struct IsEnum<moteus::aux::I2C::DeviceConfig::Type> {
         { T::kAs5600, "as5600" },
         { T::kLsm6dsv16x, "lsm6dsv16x" },
         { T::kLsm6dsv16xAccel, "lsm6dsv16xAccel" },
+        { T::kLsm6dsv16xRaw, "lsm6dsv16xRaw" }, //Added new, for tview
       }};
   }
 };

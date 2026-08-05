@@ -255,6 +255,11 @@ class Register(enum.IntEnum):
     AUX2_QUATERNIONX = 0x072
     AUX2_QUATERNIONY = 0x073
     AUX2_QUATERNIONZ = 0x074
+    
+    #Added new
+    AUX2_GYROX = 0x080
+    AUX2_GYROY = 0x081
+    AUX2_GYROZ = 0x082
 
     AUX1_PWM1 = 0x076
     AUX1_PWM2 = 0x077
@@ -536,6 +541,15 @@ def parse_register(parser, register, resolution):
         return parser.read_int(resolution)
     elif register == Register.AUX2_QUATERNIONZ:
         return parser.read_int(resolution)
+    
+    #Added new
+    elif register == Register.AUX2_GYROX:
+        return parser.read_int(resolution)
+    elif register == Register.AUX2_GYROY:
+        return parser.read_int(resolution)
+    elif register == Register.AUX2_GYROZ:
+        return parser.read_int(resolution)
+        
     elif (register == Register.AUX1_ANALOG_IN1 or
           register == Register.AUX1_ANALOG_IN2 or
           register == Register.AUX1_ANALOG_IN3 or

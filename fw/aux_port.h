@@ -623,6 +623,12 @@ class AuxPort {
         ISR_ParseLsm6dsv16x(&status);
         break;
       }
+      //Added new
+      case DC::kLsm6dsv16xRaw: {          // ADD THIS CASE ISR_ParseI2c() called, Checks config.type Sees type = kLsm6dsv16xRaw Calls ISR_ParseLsm6dsv16xRaw(&status) Parses bytes into quat_x/y/z and gyro_x/y/z
+        ISR_ParseLsm6dsv16xRaw(&status);
+        break;
+      }
+
       case DC::kNone:
       case DC::kNumTypes: {
         // Ignore.
@@ -668,10 +674,29 @@ class AuxPort {
     // (S: 1 sign bit; E: 5 exponent bits; F: 10 fraction bits).
     // The data comes in as X_low, X_high, Y_low, Y_high, Z_low, Z_high
     // *** Accelerometer data can also be put in these vars, but that's not float16.
-    status->quat_x = (quaternion_raw_data_[1] << 8) | quaternion_raw_data_[0]; // Bytes 0, 1
-    status->quat_y = (quaternion_raw_data_[3] << 8) | quaternion_raw_data_[2]; // Bytes 2, 3
-    status->quat_z = (quaternion_raw_data_[5] << 8) | quaternion_raw_data_[4]; // Bytes 4, 5
+    status->accel_x = (quaternion_raw_data_[1] << 8) | quaternion_raw_data_[0]; // Bytes 0, 1
+    status->accel_y = (quaternion_raw_data_[3] << 8) | quaternion_raw_data_[2]; // Bytes 2, 3
+    status->accel_z = (quaternion_raw_data_[5] << 8) | quaternion_raw_data_[4]; // Bytes 4, 5
   }
+  
+  //Added new
+  void ISR_ParseLsm6dsv16xRaw(aux::I2C::DeviceStatus* status) {
+    status->active = i2c_startup_complete_;
+    
+    status->nonce += 1;
+    
+    // Raw accelerometer data (int16, NOT float16)
+    // Data comes in as X_low, X_high, Y_low, Y_high, Z_low, Z_high
+    status->accel_x = (accel_raw_data_[1] << 8) | accel_raw_data_[0];  // Accel X
+    status->accel_y = (accel_raw_data_[3] << 8) | accel_raw_data_[2];  // Accel Y
+    status->accel_z = (accel_raw_data_[5] << 8) | accel_raw_data_[4];  // Accel Z
+    
+    // Raw gyroscope data (int16)
+    // Data comes in as X_low, X_high, Y_low, Y_high, Z_low, Z_high
+    status->gyro_x = (gyro_raw_data_[1] << 8) | gyro_raw_data_[0];  // Gyro X
+    status->gyro_y = (gyro_raw_data_[3] << 8) | gyro_raw_data_[2];  // Gyro Y
+    status->gyro_z = (gyro_raw_data_[5] << 8) | gyro_raw_data_[4];  // Gyro Z
+}
 
   void ISR_PollI2c() {
     using DC = aux::I2C::DeviceConfig;
@@ -723,6 +748,15 @@ class AuxPort {
             
             break;
           }
+          
+          //Added new
+          case DC::kLsm6dsv16xRaw: {
+            if (!state.initialized) {
+              if (InitLsm6dsv16xRaw(config)) state.initialized = true;
+              return;
+            }
+            break;
+          }
           case DC::kNone:
           case DC::kNumTypes: {
             MJ_ASSERT(false);
@@ -755,14 +789,18 @@ class AuxPort {
             ReadIMUData(config.address);
             break;
           }
+          
+          //Added new
+          case DC::kLsm6dsv16xRaw: {
+            ReadRawIMUData(config.address);
+            break;
+	  }
           case DC::kNone:
           case DC::kNumTypes: {
             MJ_ASSERT(false);
             break;
           }
         }
-        // We can start at most 1 device per polling cycle, so bail
-        // out here.
         return;
       }
     }
@@ -888,6 +926,54 @@ class AuxPort {
 
     return true;
   }
+  
+  
+  //Added new function
+  bool InitLsm6dsv16xRaw(const auto config) {
+    // Make sure I2C is in a clean state
+    while (i2c_->busy()) {
+      i2c_->Poll();
+    }
+    // Check poll rate - must poll faster than IMU data rate
+    // IMU at 240 Hz = 4.17ms period, we need < 2ms poll rate
+    const int hz = 240;
+    if (config.poll_rate_us >= 1000000 / 120 / 2) {
+      DigitalOut db1_led(g_hw_pins.debug_led1, 0);
+      return false;
+    }
+
+    // Select data rate based on hz setting
+    uint8_t ctrl1 = 0x06;  // Default: 120 Hz
+    switch (hz) {
+      case 240: ctrl1 = 0x07; break;
+      case 480: ctrl1 = 0x08; break;
+      default: break;  // remain at 0x06 for 120Hz
+    }
+
+    // Configure accelerometer: 240Hz output rate
+    i2c_->StartWriteMemory(config.address, 0x10, std::string_view(
+        reinterpret_cast<const char*>(&ctrl1), 1));
+    wait_i2c();
+
+    // Set accelerometer full scale to ±16g
+    uint8_t ctrl8 = 0x03;  // FS_XL = 11b for ±16g
+    i2c_->StartWriteMemory(config.address, 0x17, std::string_view(
+        reinterpret_cast<const char*>(&ctrl8), 1));
+    wait_i2c();
+
+    // Configure gyroscope: 240Hz output rate
+    uint8_t ctrl2 = 0x07;  // Same rate as accel
+    i2c_->StartWriteMemory(config.address, 0x11, std::string_view(
+        reinterpret_cast<const char*>(&ctrl2), 1));
+    wait_i2c();
+
+    // Set gyroscope full scale to ±2000 dps
+    uint8_t ctrl6 = 0x04;  // FS_G = 100b for ±2000 dps
+    i2c_->StartWriteMemory(config.address, 0x15, std::string_view(
+        reinterpret_cast<const char*>(&ctrl6), 1));
+    wait_i2c();
+    return true;
+  }
 
   void wait_i2c() {
     // Wait for the I2C transaction to complete so we can send the next command
@@ -969,6 +1055,32 @@ class AuxPort {
     StartI2cRead(address, 0x78, &tag, 1);
     wait_i2c();
     return tag >> 3;
+  }
+  
+  //Added new
+  // Reads raw accelerometer and gyroscope data from LSM6DSV16X
+  // This function runs in interrupt context, so it must be FAST!
+  // We alternate between reading gyro and accel to keep each interrupt short.
+  void ReadRawIMUData(uint8_t address) {
+    // Alternate between reading gyro and accel each cycle
+    // This keeps interrupt time short (~3 microseconds per call)
+    static bool read_gyro = true;
+    
+    if (read_gyro) {
+      // Read raw gyroscope data from registers 0x22-0x27 (6 bytes)
+      // These are OUTX_L_G, OUTX_H_G, OUTY_L_G, OUTY_H_G, OUTZ_L_G, OUTZ_H_G
+      StartI2cRead(address, 0x22, gyro_raw_data_, 6);
+    } else {
+      // Read raw accelerometer data from registers 0x28-0x2D (6 bytes)
+      // These are OUTX_L_A, OUTX_H_A, OUTY_L_A, OUTY_H_A, OUTZ_L_A, OUTZ_H_A
+      StartI2cRead(address, 0x28, accel_raw_data_, 6);
+    }
+    
+    // Toggle for next cycle
+    read_gyro = !read_gyro;
+
+    // Return immediately - don't wait for I2C to complete
+    // The data will be ready on the next interrupt cycle
   }
 
 
@@ -1597,6 +1709,10 @@ class AuxPort {
   uint8_t encoder_raw_data_[6] = {};
   uint8_t FIFO_raw_data_[2] = {};
   uint8_t quaternion_raw_data_[6] = {};
+  
+  //Added new
+  uint8_t accel_raw_data_[6] = {};         // Data buffers for accelerometer
+  uint8_t gyro_raw_data_[6] = {};          // Data buffers for gyro
   bool i2c_startup_complete_ = false;
 
   static constexpr size_t kTunnelBufSize = 64;

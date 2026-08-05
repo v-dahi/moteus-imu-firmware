@@ -322,6 +322,12 @@ enum class Register {
   kAux2QuaternionX = 0x072,
   kAux2QuaternionY = 0x073,
   kAux2QuaternionZ = 0x074,
+  
+  //Added new, gyro registers
+  kAux2GyroX = 0x080,
+  kAux2GyroY = 0x081,
+  kAux2GyroZ = 0x082,
+  
 
   kAux1Pwm1 = 0x076,
   kAux1Pwm2 = 0x077,
@@ -819,6 +825,9 @@ class MoteusController::Impl : public multiplex::MicroServer::Server {
       case Register::kAux2QuaternionX:
       case Register::kAux2QuaternionY:
       case Register::kAux2QuaternionZ:
+      case Register::kAux2GyroX:      // Added new
+      case Register::kAux2GyroY:      // Added new
+      case Register::kAux2GyroZ:      // Added new, wrtie only registers
       case Register::kMillisecondCounter:
       case Register::kModelNumber:
       case Register::kSerialNumber1:
@@ -1162,6 +1171,17 @@ class MoteusController::Impl : public multiplex::MicroServer::Server {
         }
         return quaternion_cache_.z;
       }
+      
+      // Added new
+      case Register::kAux2GyroX: {
+        return ReadGyroValue(0);  // Index 0 for X
+      }
+      case Register::kAux2GyroY: {
+        return ReadGyroValue(1);  // Index 1 for Y
+      }
+      case Register::kAux2GyroZ: {
+        return ReadGyroValue(2);  // Index 2 for Z
+      }
 
       case Register::kModelNumber: {
         if (type != 2) { break; }
@@ -1257,18 +1277,37 @@ class MoteusController::Impl : public multiplex::MicroServer::Server {
     QuaternionValues result;
     
     __disable_irq();  // Disable interrupts to ensure atomic reads
-    auto* status = const_cast<AuxPort&>(aux2_port_).status();
+    auto* status = const_cast<AuxPort&>(aux1_port_).status();     //change2: (aux2_port_) to (aux1_port_)
     
     // The LSM6DSV16X provides quaternion values in float16 format
     // We use signed int16_t casting to ensure proper interpretation of the data
-    result.x = Value(static_cast<int16_t>(status->i2c.devices[0].quat_x));
-    result.y = Value(static_cast<int16_t>(status->i2c.devices[0].quat_y));
-    result.z = Value(static_cast<int16_t>(status->i2c.devices[0].quat_z));
+    result.x = Value(static_cast<int16_t>(status->i2c.devices[0].accel_x));
+    result.y = Value(static_cast<int16_t>(status->i2c.devices[0].accel_y));
+    result.z = Value(static_cast<int16_t>(status->i2c.devices[0].accel_z));
     
     __enable_irq();  // Re-enable interrupts
     return result;
   }
+  
+  //Added new
+  Value ReadGyroValue(int axis) const {
+    __disable_irq();
+    auto* status = const_cast<AuxPort&>(aux1_port_).status();   //change2: aux2 to aux1
+    int16_t value;
+    
+    switch(axis) {
+        case 0: value = status->i2c.devices[0].gyro_x; break;
+        case 1: value = status->i2c.devices[0].gyro_y; break;
+        case 2: value = status->i2c.devices[0].gyro_z; break;
+        default: value = 0;
+    }
+    
+    __enable_irq();
+    return Value(value);
+ }
 };
+
+  
 
 MoteusController::MoteusController(micro::Pool* pool,
                                    micro::PersistentConfig* persistent_config,

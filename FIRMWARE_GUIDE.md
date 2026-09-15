@@ -194,7 +194,7 @@ python3 -m moteus.moteus_tool --target 1 --info    # save this output
 
 From the folder containing `moteus.elf`:
 ```bash
-python3 -m moteus.moteus_tool --target 1 --flash moteus.elf
+python3 -m moteus.moteus_tool --target 1 --flash new_firmware.elf
 ```
 Takes a minute or two. **Do not cut power mid-flash.**
 
